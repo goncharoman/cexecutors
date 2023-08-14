@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - name: Install tox
+        run: pipx install tox
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v4
+        with:
+            python-version: "3.11"
+            cache: 'poetry'
+      - name: Lint
+        run: tox -e lint
+
+  test:
+    needs: [lint]
+    strategy:
+      matrix:
+        python: ['3.9', '3.10', '3.11']
+
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - uses: actions/checkout@v3
+      - run: mkdir coverage
+      - name: Install poetry
+        run: pipx install poetry
+      - name: Install tox
+        run: pipx install tox
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v4
+        with:
+            python-version: ${{ matrix.python }}
+            cache: 'poetry'
+      - name: Run tests
+        run: tox -e py
+      - run: cp .coverage coverage/.coverage.${{ runner.os }}-py${{ matrix.python }}
+      - name: Store coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: coverage
+      
+  coverage-report:
+    needs: [test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - uses: actions/checkout@v3
+      - name: Install coverage
+        run: pipx install coverage
+      - name: Get coverage reports
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage
+          path: coverage
+      - run: ls -la coverage
+      - name: Combine reports
+        run: |
+          coverage combine coverage
+          coverage xml
+      - name: Upload coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unittests
+          fail_ci_if_error: true
