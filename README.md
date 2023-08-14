@@ -30,7 +30,7 @@ from cexecutors import InterruptibleThreadPoolExecutor
 
 
 def work():
-    with True:
+    while True:
         pass
 
 
