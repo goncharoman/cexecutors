@@ -13,9 +13,9 @@ from typing import Any, Callable, Optional, Type, TypeVar, Union
 
 from typing_extensions import ParamSpec
 
+F = TypeVar("F")
 T = TypeVar("T")
 P = ParamSpec("P")
-
 
 CURRENT_IMPLEMENTATION = platform.python_implementation()
 SUPPORTED_IMPLEMENTATIONS = {"CPython"}
@@ -83,7 +83,7 @@ def _raise_thread_exception_cpython(tid: int, exctype: Type[BaseException]):
         raise SystemError("exception was set in multiple threads")
 
 
-class Future(_base.Future):
+class Future(_base.Future[F]):
 
     @property
     def _delegate(self) -> Union[_base.Future, None]:
@@ -224,7 +224,7 @@ class InterruptibleThreadPoolExecutor(_base.Executor):
                 stacklevel=2
             )
 
-    def submit(self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> Future:
+    def submit(self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> Future[T]:
         with self._shutdown_lock:
             if self._shutdown:
                 raise RuntimeError("cannot schedule new futures after shutdown")
